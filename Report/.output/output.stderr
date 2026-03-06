@@ -1,0 +1,7 @@
+ChkTeX v1.7.8 - Copyright 1995-96 Jens T. Berger Thielemann.
+Compiled with PCRE regex support.
+No errors printed; No warnings printed; 17 user suppressed warnings; No line suppressed warnings.
+PNG copy skipped (alpha): ./Resources/UoB.png
+Image written (PNG, 31 ms): ./Resources/UoB.png
+PNG copy skipped (palette): ./Resources/apparatus.png
+Image written (PNG, 4 ms): ./Resources/apparatus.png

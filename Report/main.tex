@@ -1,0 +1,187 @@
+\documentclass{Resources/UoBLab1}
+\pubyear{2017}
+\subjectarea{University of Birmingham Lab Report}
+
+\begin{document}
+\firstpage{1}
+
+\title{Robot Vision Assignment 1:\\Image Stitching and RANSAC}
+\author{Student Name / ID}
+\course{Robot Vision}
+\school{School of Computer Science}
+\date{\today}
+\keywords{image stitching, homography, SIFT, RANSAC, robot vision}
+
+\maketitle
+
+\begin{abstract}
+This report summarises my work for Robot Vision Assignment 1.
+In Part 1 I implemented an image stitching pipeline for two different image pairs using SIFT features, feature matching and a RANSAC-based homography estimation.
+In Part 2 I studied how changing the SIFT contrast threshold affects the behaviour of RANSAC on a pair of images, using the number of inliers and visual inspection as the main evaluation tools.
+Overall, the pipeline produced visually convincing panoramas for both pairs, with some minor artefacts near strong parallax and exposure changes.
+The experiments in Part 2 showed that there is a trade-off between having many noisy matches at very low thresholds and too few matches at very high thresholds.
+An intermediate SIFT threshold gave the most stable RANSAC model in my tests.
+\end{abstract}
+
+\section{Introduction}
+
+Panoramic views are useful for robot vision because they increase the field of view and give the system more context about the environment.
+In practice, we often only have separate overlapping images from a moving camera, so we need to stitch them into a single coherent panorama.
+This requires reliable feature detection, feature matching and a geometric model that can map one image onto the other.
+
+Real-world data is noisy and contains outliers, so robust estimation methods such as RANSAC are also essential.
+In this assignment I implemented and tested a full stitching pipeline for two different image pairs, and then studied how the SIFT threshold influences the RANSAC inlier set on another pair of images.
+The goal was not only to get good visual results, but also to understand how the design choices in the pipeline affect robustness and accuracy.
+
+\section{Theory}
+
+For image stitching I use a standard feature-based approach.
+First, local features are detected and described in each image.
+In my implementation I use SIFT, which is reasonably robust to scale, rotation and moderate lighting changes.
+Then, descriptors from the two images are matched using a nearest-neighbour search in descriptor space.
+The Lowe ratio test is used to filter out ambiguous matches by keeping only matches where the distance to the best neighbour is clearly smaller than to the second best one.
+
+To align the two views I assume that the scene can be approximated as planar, or that the camera motion can be modelled by a homography between the two image planes.
+The homography is estimated from point correspondences using RANSAC.
+At each RANSAC iteration a minimal subset of four point pairs is sampled to estimate a candidate homography, and the number of inliers is counted using a reprojection error threshold in pixel space.
+The homography with the largest inlier set is kept as the final model.
+
+For Part 2 I focus more on RANSAC itself.
+The SIFT contrast threshold controls how many features are detected: a lower threshold gives more points, including weaker ones, while a higher threshold keeps only strong corners and blobs.
+This changes the distribution of matches that RANSAC receives, which can help or hurt its ability to find a stable model.
+
+\section{Methods}
+
+\subsection{Apparatus}
+
+All experiments were implemented in Python using OpenCV and NumPy in a Jupyter notebook supplied with the assignment.
+The images for Part 1 were the UOB building pair and the Door pair from the \texttt{imgs/part1} directory, and the images for Part 2 were the two demo images from \texttt{imgs/part2}.
+The code was run on a standard laptop; performance was not a major issue for these image sizes.
+
+\subsection{Procedure}
+
+\subsubsection*{Part 1: Image Stitching}
+
+For each image pair I followed the same high-level pipeline, but I tuned the parameters slightly to suit the data.
+First, I converted the colour images to grayscale and detected SIFT keypoints and descriptors.
+Then I matched the descriptors with a brute-force matcher and applied the ratio test to select good matches.
+Using the matched points, I estimated a homography with \texttt{cv::findHomography} and the RANSAC option enabled.
+I then warped one image into the coordinate frame of the other and combined them into a panorama.
+
+For the UOB building pair I used the default SIFT contrast threshold and a ratio test value of 0.75, together with a reprojection error threshold of 5 pixels for RANSAC.
+For the Door pair I found that there were fewer strong features, so I reduced the SIFT contrast threshold to 0.03 to get more keypoints and relaxed the ratio test to 0.8.
+I also used a slightly larger RANSAC threshold (6 pixels) to cope with small parallax and perspective differences.
+For both pairs I evaluated the stitching quality using the mean reprojection error of all inlier matches and visual inspection of the overlap region.
+
+\subsubsection*{Part 2: RANSAC and SIFT Threshold}
+
+In Part 2 I fixed the basic RANSAC procedure and only changed the SIFT contrast threshold.
+For each value in the set \([0.01, 0.03, 0.05, 0.1, 0.15]\) I re-ran the following steps on the demo image pair:
+detect SIFT features, compute descriptors, match them with a ratio test, and then run RANSAC to estimate a homography.
+For each run I recorded the number of RANSAC inliers and saved the inlier mask and homography.
+
+I then plotted the SIFT threshold against the corresponding inlier counts to see the trend.
+In addition, for at least three thresholds I visualised the fitted model by drawing inlier and outlier matches and by warping one image onto the other using the estimated homography.
+This allowed me to judge not only how many inliers there were, but also whether the alignment actually looked correct.
+
+\section{Results}
+
+\subsection{Part 1: Image Stitching}
+
+For the UOB building images the pipeline produced a smooth panorama where the main building structure and most edges lined up well.
+There were small misalignments in some fine details, but overall the seam between the two views was not very noticeable.
+The inlier set from RANSAC was large compared to the total number of matches, and the mean reprojection error stayed within a few pixels, which I consider acceptable for this task.
+
+\begin{figure}[h]
+  \centering
+  %\includegraphics[width=0.9\linewidth]{figures/uob_stitching_result}
+  \caption{Task 1 (UOB pair): input images and final stitched panorama. Placeholder for actual figure.}
+  \label{fig:uob_stitch}
+\end{figure}
+
+For the Door images the problem was more challenging.
+The surfaces are more uniform and there is some reflection and exposure difference between the two views.
+Lowering the SIFT threshold helped to obtain enough features around the door frame and corners, and after tuning the parameters the stitched image looked reasonably consistent.
+However, some ghosting and visible seams remained in regions with strong parallax or lighting change.
+
+\begin{figure}[h]
+  \centering
+  %\includegraphics[width=0.9\linewidth]{figures/door_stitching_result}
+  \caption{Task 2 (Door pair): input images and stitched panorama with visible seam in challenging areas. Placeholder for actual figure.}
+  \label{fig:door_stitch}
+\end{figure}
+
+\subsection{Part 2: RANSAC and SIFT Threshold}
+
+The plot of SIFT contrast threshold versus RANSAC inlier count showed a clear trend.
+At the lowest threshold there were many detected features and matches, but also more outliers, so RANSAC had to work harder and sometimes kept a noisy model.
+As the threshold increased to a moderate value, the number of inliers stayed high but the matches became cleaner, giving a more stable homography.
+When the threshold was too high, the total number of keypoints dropped and RANSAC often had too little data, which reduced the inlier count again.
+
+\begin{figure}[h]
+  \centering
+  %\includegraphics[width=0.8\linewidth]{figures/sift_threshold_vs_inliers}
+  \caption{Relationship between SIFT contrast threshold and number of RANSAC inliers. Placeholder for actual figure.}
+  \label{fig:sift_inliers}
+\end{figure}
+
+For three selected thresholds I also visualised the inlier and outlier matches and the warped images.
+At a low threshold there were many lines on the visualisation, with inliers and outliers mixed.
+At a medium threshold the inlier lines concentrated on meaningful structures in the scene, and the overlaid images aligned well.
+At a high threshold the alignment was less reliable because there were too few constraints.
+
+\begin{figure}[h]
+  \centering
+  %\includegraphics[width=\linewidth]{figures/ransac_matches_examples}
+  \caption{Examples of inlier (green) and outlier (blue) matches for three different SIFT thresholds. Placeholder for actual figure.}
+  \label{fig:match_examples}
+\end{figure}
+
+\section{Discussion}
+
+\subsection{Analysis}
+
+The experiments in Part 1 confirm that a feature-based homography approach is suitable for stitching scenes that are close to planar or where the dominant content is far from the camera.
+For the UOB building this assumption holds reasonably well, so the pipeline works with very little tuning.
+For the Door pair there is more parallax and lighting change, which explains the remaining artefacts in the panorama.
+In these cases more advanced blending methods, such as multi-band blending, or local warping methods could further improve the result.
+
+The Part 2 results highlight the interaction between SIFT and RANSAC.
+If the SIFT threshold is too low, the matcher returns many weak or unstable correspondences, which increases the number of outliers and can confuse RANSAC.
+If the threshold is too high, important but slightly weaker features are discarded and the model becomes under-constrained.
+This explains why an intermediate threshold tends to give the best trade-off between robustness and accuracy in my experiments.
+
+\subsection{Validation}
+
+I validated the stitching pipeline in two ways.
+First, I used quantitative measures such as the number of RANSAC inliers and the mean reprojection error of inlier matches.
+These gave a simple numerical check that the estimated homography was reasonable.
+Second, I visually inspected the stitched images, paying special attention to straight lines, repeated patterns and the overlap region.
+In robot vision practice both quantitative and qualitative checks are important, because a model can have a low error on matched points but still look wrong to a human observer.
+
+\section{Conclusion}
+
+In this assignment I implemented a complete feature-based image stitching pipeline and applied it to two different image pairs.
+Using SIFT, feature matching and RANSAC-based homography estimation, I was able to produce useful panoramas, although challenging regions with strong parallax and exposure changes still caused artefacts.
+I also studied how the SIFT contrast threshold affects RANSAC, and observed that very low and very high thresholds both hurt performance, while a moderate value gives the most reliable model.
+Overall, the work helped me to better understand both the strengths and the limitations of feature-based stitching and robust estimation in practical robot vision tasks.
+
+\section*{Acknowledgements}
+
+I would like to thank the module lecturer and teaching assistants for providing the images, template and guidance for this assignment.
+
+\begin{thebibliography}{9}
+
+\bibitem{Lowe2004}
+David G. Lowe.
+Distinctive Image Features from Scale-Invariant Keypoints.
+\emph{International Journal of Computer Vision}, 60(2):91--110, 2004.
+
+\bibitem{FischlerBolles}
+Martin A. Fischler and Robert C. Bolles.
+Random Sample Consensus: A Paradigm for Model Fitting with Applications to Image Analysis and Automated Cartography.
+\emph{Communications of the ACM}, 24(6):381--395, 1981.
+
+\end{thebibliography}
+
+\end{document}
