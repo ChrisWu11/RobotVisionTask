@@ -73,6 +73,11 @@ For the Door pair I found that there were fewer strong features, so I reduced th
 I also used a slightly larger RANSAC threshold (6 pixels) to cope with small parallax and perspective differences.
 For both pairs I evaluated the stitching quality using the mean reprojection error of all inlier matches and visual inspection of the overlap region.
 
+After getting the baseline result, I added an optimisation step to improve the visual quality.
+The baseline simply overwrote one warped image with the other where they overlapped, which left a hard seam and large black areas around the edges.
+I changed this in two ways: first, I used feather blending in the overlap region so that the transition between the two images is smoother; second, I cropped away the black borders to keep only the valid part of the panorama.
+Both pairs went through the same optimisation.
+
 \subsubsection*{Part 2: RANSAC and SIFT Threshold}
 
 In Part 2 I fixed the basic RANSAC procedure and only changed the SIFT contrast threshold.
@@ -88,27 +93,56 @@ This allowed me to judge not only how many inliers there were, but also whether 
 
 \subsection{Part 1: Image Stitching}
 
-For the UOB building images the pipeline produced a smooth panorama where the main building structure and most edges lined up well.
-There were small misalignments in some fine details, but overall the seam between the two views was not very noticeable.
-The inlier set from RANSAC was large compared to the total number of matches, and the mean reprojection error stayed within a few pixels, which I consider acceptable for this task.
+\subsubsection*{Task 1 (UOB pair)}
+
+The UOB building pair contains two views of the main building taken from slightly different positions.
+Before any optimisation I first looked at the two original images and the baseline stitched panorama, which I show together in a single figure.
+This makes it easy to see the overlap area and to judge where the first stitch starts to deviate from the ideal geometry.
 
 \begin{figure}[h]
   \centering
-  %\includegraphics[width=0.9\linewidth]{figures/uob_stitching_result}
-  \caption{Task 1 (UOB pair): input images and final stitched panorama. Placeholder for actual figure.}
-  \label{fig:uob_stitch}
+  \includegraphics[width=0.95\linewidth]{Resources/Imgs/img1}
+  \caption{Task 1 (UOB pair): input image~1, input image~2, and the baseline stitched panorama (from left to right).}
+  \label{fig:uob_triplet}
 \end{figure}
 
-For the Door images the problem was more challenging.
-The surfaces are more uniform and there is some reflection and exposure difference between the two views.
-Lowering the SIFT threshold helped to obtain enough features around the door frame and corners, and after tuning the parameters the stitched image looked reasonably consistent.
-However, some ghosting and visible seams remained in regions with strong parallax or lighting change.
+\subsubsection*{Task 2 (Door pair)}
+
+The Door pair was harder to stitch because the surfaces are more uniform and there is reflection and exposure difference.
+As with Task 1, I first inspected the two input images and the baseline stitched result, which are shown together in Figure~\ref{fig:door_triplet}.
+From this figure it is clear that the overlap region is challenging and that the first stitch still has a visible seam and large black regions.
 
 \begin{figure}[h]
   \centering
-  %\includegraphics[width=0.9\linewidth]{figures/door_stitching_result}
-  \caption{Task 2 (Door pair): input images and stitched panorama with visible seam in challenging areas. Placeholder for actual figure.}
-  \label{fig:door_stitch}
+  \includegraphics[width=0.95\linewidth]{Resources/Imgs/img2}
+  \caption{Task 2 (Door pair): input image~1, input image~2, and the baseline stitched panorama (from left to right).}
+  \label{fig:door_triplet}
+\end{figure}
+
+\subsubsection*{Joint optimisation for Task 1 and Task 2}
+
+After obtaining the baseline stitches for both pairs, I applied the same simple optimisation method to each of them.
+The method combines feather blending in the overlap region with automatic cropping of black borders.
+This step does not change the underlying homography, but makes the panoramas easier to interpret by softening the seam and focusing on the valid areas.
+
+Figure~\ref{fig:uob_opt} shows the baseline and optimised panoramas for the UOB pair.
+The optimised version has a smoother transition around the seam and a tighter framing around the building.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\linewidth]{Resources/Imgs/img3}
+  \caption{Task 1 (UOB pair): baseline stitch (left) vs optimised stitch with feather blending and crop (right).}
+  \label{fig:uob_opt}
+\end{figure}
+
+Figure~\ref{fig:door_opt} shows the same comparison for the Door pair.
+Here the optimisation reduces the visible seam and the size of the black regions, although some ghosting remains in areas with strong reflections and parallax.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\linewidth]{Resources/Imgs/img4}
+  \caption{Task 2 (Door pair): baseline stitch (left) vs optimised stitch with feather blending and crop (right).}
+  \label{fig:door_opt}
 \end{figure}
 
 \subsection{Part 2: RANSAC and SIFT Threshold}
@@ -120,8 +154,8 @@ When the threshold was too high, the total number of keypoints dropped and RANSA
 
 \begin{figure}[h]
   \centering
-  %\includegraphics[width=0.8\linewidth]{figures/sift_threshold_vs_inliers}
-  \caption{Relationship between SIFT contrast threshold and number of RANSAC inliers. Placeholder for actual figure.}
+  \includegraphics[width=0.8\linewidth]{Resources/Imgs/img5}
+  \caption{Relationship between SIFT contrast threshold and number of RANSAC inliers.}
   \label{fig:sift_inliers}
 \end{figure}
 
@@ -129,12 +163,20 @@ For three selected thresholds I also visualised the inlier and outlier matches a
 At a low threshold there were many lines on the visualisation, with inliers and outliers mixed.
 At a medium threshold the inlier lines concentrated on meaningful structures in the scene, and the overlaid images aligned well.
 At a high threshold the alignment was less reliable because there were too few constraints.
+Figure~\ref{fig:match_examples} shows the inlier and outlier matches side by side for three different thresholds, and Figure~\ref{fig:overlay_examples} shows how well the warped images line up for the same thresholds.
 
 \begin{figure}[h]
   \centering
-  %\includegraphics[width=\linewidth]{figures/ransac_matches_examples}
-  \caption{Examples of inlier (green) and outlier (blue) matches for three different SIFT thresholds. Placeholder for actual figure.}
+  \includegraphics[width=\linewidth]{Resources/Imgs/img6}
+  \caption{Examples of inlier (green) and outlier (blue) matches for three different SIFT thresholds.}
   \label{fig:match_examples}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\linewidth]{Resources/Imgs/img7}
+  \caption{Task 3: alignment of warped images for three different SIFT thresholds, illustrating how the homography model fits the scene.}
+  \label{fig:overlay_examples}
 \end{figure}
 
 \section{Discussion}
@@ -144,12 +186,14 @@ At a high threshold the alignment was less reliable because there were too few c
 The experiments in Part 1 confirm that a feature-based homography approach is suitable for stitching scenes that are close to planar or where the dominant content is far from the camera.
 For the UOB building this assumption holds reasonably well, so the pipeline works with very little tuning.
 For the Door pair there is more parallax and lighting change, which explains the remaining artefacts in the panorama.
-In these cases more advanced blending methods, such as multi-band blending, or local warping methods could further improve the result.
+I found that feather blending and cropping made a clear difference for both pairs compared to the baseline.
+More advanced methods such as multi-band blending could improve the result further, but the current optimisation was enough to get a usable panorama.
 
 The Part 2 results highlight the interaction between SIFT and RANSAC.
 If the SIFT threshold is too low, the matcher returns many weak or unstable correspondences, which increases the number of outliers and can confuse RANSAC.
 If the threshold is too high, important but slightly weaker features are discarded and the model becomes under-constrained.
 This explains why an intermediate threshold tends to give the best trade-off between robustness and accuracy in my experiments.
+In practice I used both the inlier curves and the match/overlay visualisations to decide which thresholds produced the most reliable homography.
 
 \subsection{Validation}
 
@@ -162,7 +206,8 @@ In robot vision practice both quantitative and qualitative checks are important,
 \section{Conclusion}
 
 In this assignment I implemented a complete feature-based image stitching pipeline and applied it to two different image pairs.
-Using SIFT, feature matching and RANSAC-based homography estimation, I was able to produce useful panoramas, although challenging regions with strong parallax and exposure changes still caused artefacts.
+Using SIFT, feature matching and RANSAC-based homography estimation, I produced baseline panoramas first, then improved them with feather blending and cropping.
+The optimised results looked better than the baseline for both pairs, although challenging regions with strong parallax and exposure changes still caused some artefacts.
 I also studied how the SIFT contrast threshold affects RANSAC, and observed that very low and very high thresholds both hurt performance, while a moderate value gives the most reliable model.
 Overall, the work helped me to better understand both the strengths and the limitations of feature-based stitching and robust estimation in practical robot vision tasks.
 
